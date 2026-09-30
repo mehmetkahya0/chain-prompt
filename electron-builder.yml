@@ -1,0 +1,20 @@
+appId: com.chainprompt.app
+productName: Chain Prompt
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - build/icon.png
+  - package.json
+asarUnpack:
+  - node_modules/node-pty/**
+npmRebuild: false
+win:
+  target: nsis
+mac:
+  target: dmg
+  category: public.app-category.developer-tools
+linux:
+  target: AppImage
+  category: Development

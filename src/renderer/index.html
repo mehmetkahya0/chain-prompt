@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+    />
+    <title>Chain Prompt</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-mark" id="brand-mark" alt="" aria-hidden="true" />
+        Chain Prompt
+      </div>
+      <span id="chain-state" class="pill" data-state="idle">Ready</span>
+      <p id="chain-message" class="status-message"></p>
+      <button id="btn-settings" class="btn ghost" title="Settings"></button>
+    </header>
+
+    <main class="split" id="split">
+      <section class="panel left" aria-label="Prompt queue">
+        <div class="controls" role="toolbar" aria-label="Chain controls">
+          <button id="btn-start" class="btn primary"></button>
+          <button id="btn-pause" class="btn"></button>
+          <button id="btn-resume" class="btn"></button>
+          <button id="btn-stop" class="btn danger-ghost"></button>
+          <button id="btn-skip" class="btn" title="Skip the next pending step"></button>
+        </div>
+
+        <form id="composer" class="composer">
+          <label for="new-prompt" class="sr-only">New prompt</label>
+          <textarea id="new-prompt" rows="4" placeholder="Write a prompt… (Ctrl+Enter to add)"></textarea>
+          <div class="composer-row">
+            <label class="check" title="Reset the context before this step (/clear or a claude restart)">
+              <input type="checkbox" id="new-session" /> Run in a new session
+            </label>
+            <button type="submit" id="btn-add" class="btn primary"></button>
+          </div>
+        </form>
+
+        <div class="queue-bar">
+          <span id="queue-count" class="muted">Queue is empty</span>
+          <div class="queue-actions">
+            <button id="btn-save" class="btn ghost small" title="Save chain as JSON"></button>
+            <button id="btn-load" class="btn ghost small" title="Load a JSON chain"></button>
+            <button id="btn-reset-all" class="btn ghost small" title="Reset every step to pending"></button>
+            <button id="btn-clear" class="btn ghost small" title="Clear the queue"></button>
+            <button id="btn-logs" class="btn ghost small" title="Open the log folder"></button>
+          </div>
+        </div>
+
+        <ol id="queue" class="queue" aria-label="Queue"></ol>
+      </section>
+
+      <div class="resizer" id="resizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize panels"></div>
+
+      <section class="panel right" aria-label="Terminal">
+        <div class="term-bar">
+          <button id="btn-folder" class="btn"></button>
+          <select id="folder-select" class="folder-select" title="Recent folders" aria-label="Working folder">
+            <option value="">No folder selected</option>
+          </select>
+          <span id="session-status" class="session-status" data-status="off">No session</span>
+          <button id="btn-new-session" class="btn small" title="Start claude from scratch"></button>
+          <button id="btn-continue-session" class="btn small" title="claude --continue"></button>
+        </div>
+        <div class="term-wrap">
+          <div id="terminal"></div>
+          <div id="term-empty" class="term-empty">
+            <p>Choose a working folder — <code>claude</code> will start in the terminal.</p>
+            <p class="muted">If no session is running when you start the chain, one is opened automatically.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="settings-dialog" class="dialog">
+      <form method="dialog" id="settings-form">
+        <h2>Settings</h2>
+
+        <fieldset>
+          <legend>Permission mode <span class="muted">(--permission-mode)</span></legend>
+          <label class="radio"><input type="radio" name="permissionMode" value="default" /> Default <span class="muted">— no flag, claude's own setting applies</span></label>
+          <label class="radio"><input type="radio" name="permissionMode" value="acceptEdits" /> acceptEdits <span class="muted">— file edits are approved automatically</span></label>
+          <label class="radio"><input type="radio" name="permissionMode" value="bypassPermissions" /> bypassPermissions <span class="muted">— never asks for permission</span></label>
+          <p id="bypass-warning" class="warning" hidden>
+            ⚠ Risky when running unattended — use it on a separate git branch. Claude will run every command without asking.
+          </p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Chain</legend>
+          <label>Delay between steps (s) <input type="number" name="stepDelaySec" min="0" max="600" step="0.5" /></label>
+          <label>Stall warning after silence (min, 0 = off) <input type="number" name="idleTimeoutMin" min="0" max="600" step="1" /></label>
+          <label>For "new session" steps
+            <select name="newSessionMethod">
+              <option value="clear">send /clear (fast)</option>
+              <option value="restart">restart claude</option>
+            </select>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Notifications</legend>
+          <label class="check"><input type="checkbox" name="desktopNotifications" /> Desktop notifications</label>
+          <label class="check"><input type="checkbox" name="ntfyEnabled" /> ntfy notifications</label>
+          <label>ntfy server <input type="url" name="ntfyServer" placeholder="https://ntfy.sh" /></label>
+          <label>ntfy topic <input type="text" name="ntfyTopic" placeholder="e.g. my-secret-topic-123" autocomplete="off" /></label>
+          <p class="muted small">A topic works like a public channel — pick a name that is hard to guess.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Advanced</legend>
+          <label>claude command <input type="text" name="claudeCommand" placeholder="claude" /></label>
+          <label>Extra arguments <input type="text" name="extraArgs" placeholder="e.g. --model opus" /></label>
+          <label>Hook transport
+            <select name="hookTransport">
+              <option value="curl">command + curl (recommended)</option>
+              <option value="http">native HTTP hook (SessionStart/End still use curl)</option>
+            </select>
+          </label>
+          <p class="muted small">Changes apply the next time claude is started.</p>
+        </fieldset>
+
+        <div class="dialog-actions">
+          <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
+          <button value="save" id="settings-save" class="btn primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

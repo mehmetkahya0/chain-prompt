@@ -1,0 +1,55 @@
+{
+  "name": "chain-prompt",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "playwright-core": "^1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6"
+  },
+  "allowScripts": {
+    "electron@44.5.1": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "node-pty@1.1.0": true
+  },
+  "description": "Queue sequential prompts for Claude Code and run them hands-free",
+  "author": {
+    "name": "mehmet",
+    "email": "mehmetkahyakas5@gmail.com"
+  },
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build:app": "electron-vite build",
+    "build": "npm run typecheck && electron-vite build && electron-builder",
+    "build:dir": "electron-vite build && electron-builder --dir",
+    "test:chain": "tsx scripts/chain-smoke.ts",
+    "test:e2e": "electron-vite build && tsx scripts/e2e.ts",
+    "test:unit": "tsx scripts/chain-unit.ts",
+    "test": "npm run typecheck && npm run test:unit",
+    "icon": "tsx scripts/render-icon.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "claude-code",
+    "electron",
+    "prompt-chaining",
+    "automation",
+    "hooks"
+  ]
+}

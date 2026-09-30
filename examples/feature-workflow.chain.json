@@ -1,0 +1,23 @@
+{
+  "format": "chain-prompt",
+  "version": 1,
+  "name": "feature-workflow",
+  "steps": [
+    {
+      "prompt": "Read the codebase and write a short implementation plan for the feature described in TODO.md to PLAN.md. Do not change any code yet."
+    },
+    {
+      "prompt": "Implement the plan in PLAN.md step by step. Keep commits small and focused. Do not ask questions; make reasonable assumptions and note them in PLAN.md."
+    },
+    {
+      "prompt": "Run the test suite. Fix every failing test you introduced, then run the tests again until they pass."
+    },
+    {
+      "prompt": "Review the diff of this session with fresh eyes: look for bugs, missing edge cases and leftover debug code, and fix what you find.",
+      "newSession": true
+    },
+    {
+      "prompt": "Write a concise CHANGELOG entry for the work above."
+    }
+  ]
+}
