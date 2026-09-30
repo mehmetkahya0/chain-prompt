@@ -23,6 +23,8 @@ It detects completion through Claude Code hooks, not by parsing terminal output.
 
 <img src="docs/screenshot.png" alt="Chain Prompt: a completed three-step chain next to the live claude terminal" width="100%" />
 
+**▶ [Watch the 28-second promo](#promo-video)**
+
 </div>
 
 ---
@@ -31,6 +33,7 @@ It detects completion through Claude Code hooks, not by parsing terminal output.
 
 - [Why](#why)
 - [Features](#features)
+- [Promo video](#promo-video)
 - [Screenshots](#screenshots)
 - [Quick start](#quick-start)
 - [Usage](#usage)
@@ -73,6 +76,27 @@ session at any time, exactly as in your own terminal.
 | ☕ | **Stays awake** | `powerSaveBlocker` prevents system sleep while a chain is active. |
 | 📝 | **Run logs** | Per-run `.log` and `.json` files with timings and claude's last message for every step, in `<folder>/.chain-prompt/logs/`. |
 | 📁 | **Recent folders** | Native folder picker plus a dropdown of the last 10 folders. Switching folders starts a fresh session. |
+
+## Promo video
+
+<div align="center">
+
+<a href="docs/promo/chain-prompt-promo.mp4">
+  <img src="docs/promo/chain-prompt-promo-thumbnail.jpg" alt="Chain Prompt promo video: click to play" width="100%" />
+</a>
+
+**▶ Click the image to play** · 28 s · with sound
+
+| Version | Resolution | Size |
+|---|---|---|
+| [chain-prompt-promo.mp4](docs/promo/chain-prompt-promo.mp4) | 1920 × 1080 | 8.4 MB |
+| [chain-prompt-promo-4k.mp4](docs/promo/chain-prompt-promo-4k.mp4) | 3840 × 2160 | 17.9 MB |
+
+</div>
+
+A short tour: the manual prompt-and-wait loop, the queue running itself, the hook mechanism, the real app and
+its main features. Every cut and animation lands on the beat of an original, bass-heavy soundtrack made for
+this film.
 
 ## Screenshots
 
