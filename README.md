@@ -81,11 +81,17 @@ session at any time, exactly as in your own terminal.
 
 <div align="center">
 
-<a href="docs/promo/chain-prompt-promo.mp4">
-  <img src="docs/promo/chain-prompt-promo-thumbnail.jpg" alt="Chain Prompt promo video: click to play" width="100%" />
-</a>
+<iframe
+  src="docs/promo/chain-prompt-promo.mp4"
+  title="Chain Prompt promo video"
+  width="960"
+  height="540"
+  style="width: 100%; max-width: 960px; aspect-ratio: 16 / 9; border: 0;"
+  allow="autoplay; fullscreen"
+  allowfullscreen
+></iframe>
 
-**▶ Click the image to play** · 28 s · with sound
+<sub>28 s · with sound · player not showing? <a href="docs/promo/chain-prompt-promo.mp4">Open the video directly</a></sub>
 
 | Version | Resolution | Size |
 |---|---|---|
