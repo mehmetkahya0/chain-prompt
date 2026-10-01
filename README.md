@@ -87,17 +87,9 @@ session at any time, exactly as in your own terminal.
 
 ## Promo video
 
-<div align="center">
+https://github.com/user-attachments/assets/be0e7750-21ea-4ea7-9522-5c41cf0a321a
 
-<iframe
-  src="docs/promo/chain-prompt-promo.mp4"
-  title="Chain Prompt promo video"
-  width="960"
-  height="540"
-  style="width: 100%; max-width: 960px; aspect-ratio: 16 / 9; border: 0;"
-  allow="autoplay; fullscreen"
-  allowfullscreen
-></iframe>
+<div align="center">
 
 <sub>28 s · with sound · player not showing? <a href="docs/promo/chain-prompt-promo.mp4">Open the video directly</a></sub>
 
