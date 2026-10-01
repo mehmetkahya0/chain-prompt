@@ -10,11 +10,44 @@ files:
 asarUnpack:
   - node_modules/node-pty/**
 npmRebuild: false
+afterPack: scripts/fix-node-pty.cjs
+# Releases are uploaded by .github/workflows/release.yml, not by electron-builder.
+publish: null
+
+# Version-free file names keep the README's
+# releases/latest/download/<file> links stable across releases.
 win:
-  target: nsis
+  target:
+    - target: nsis
+      arch: x64
+    - target: portable
+      arch: x64
+nsis:
+  artifactName: Chain-Prompt-Setup-${arch}.${ext}
+portable:
+  artifactName: Chain-Prompt-Portable-${arch}.${ext}
+
 mac:
-  target: dmg
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  artifactName: Chain-Prompt-mac-${arch}.${ext}
   category: public.app-category.developer-tools
+  # Without a Developer ID certificate the build is ad-hoc signed
+  # (`-c.mac.identity=-`, see package.json / the release workflow).
+  hardenedRuntime: true
+  extendInfo:
+    NSDesktopFolderUsageDescription: Chain Prompt runs Claude Code in the folder you choose.
+    NSDocumentsFolderUsageDescription: Chain Prompt runs Claude Code in the folder you choose.
+    NSDownloadsFolderUsageDescription: Chain Prompt runs Claude Code in the folder you choose.
+    NSRemovableVolumesUsageDescription: Chain Prompt runs Claude Code in the folder you choose.
+    NSNetworkVolumesUsageDescription: Chain Prompt runs Claude Code in the folder you choose.
+dmg:
+  artifactName: Chain-Prompt-mac-${arch}.${ext}
+
 linux:
   target: AppImage
+  artifactName: Chain-Prompt-linux-${arch}.${ext}
   category: Development

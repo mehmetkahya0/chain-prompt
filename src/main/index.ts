@@ -251,6 +251,8 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   app.setAppUserModelId('com.chainprompt.app')
+  // Packaged macOS builds use the .icns from the bundle; in dev the Dock would show Electron's icon.
+  if (process.platform === 'darwin' && !app.isPackaged && existsSync(appIcon)) app.dock?.setIcon(appIcon)
   await sm.init()
   wireCore()
   registerIpc()

@@ -106,6 +106,9 @@ export class ClaudeSession extends EventEmitter {
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !STRIP_ENV.has(k)) env[k] = v
     env.TERM = 'xterm-256color'
     env.COLORTERM = 'truecolor'
+    // Apps opened from Finder/Dock get no locale from launchd, which makes
+    // claude's UI fall back to ASCII. Terminal.app sets this, so do we.
+    if (process.platform !== 'win32' && !env.LANG && !env.LC_ALL && !env.LC_CTYPE) env.LANG = 'en_US.UTF-8'
 
     this.proc = pty.spawn(file, argv, {
       name: 'xterm-256color',

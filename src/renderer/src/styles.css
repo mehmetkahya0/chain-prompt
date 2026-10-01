@@ -20,7 +20,7 @@
   --radius: 8px;
   --left: 480px;
   --font: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Ubuntu, sans-serif;
-  --mono: 'Cascadia Mono', Consolas, Menlo, 'DejaVu Sans Mono', monospace;
+  --mono: 'Cascadia Mono', Consolas, 'SF Mono', Menlo, 'DejaVu Sans Mono', monospace;
   color-scheme: dark;
 }
 

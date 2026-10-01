@@ -66,6 +66,7 @@ function setupStaticUi(openSettings: () => void): void {
 
   // Composer
   const ta = $<HTMLTextAreaElement>('#new-prompt')
+  if (/Mac/.test(navigator.userAgent)) ta.placeholder = ta.placeholder.replace('Ctrl+Enter', '⌘+Enter')
   const add = async () => {
     const prompt = ta.value
     if (!prompt.trim()) return ta.focus()

@@ -36,11 +36,15 @@
     "build:app": "electron-vite build",
     "build": "npm run typecheck && electron-vite build && electron-builder",
     "build:dir": "electron-vite build && electron-builder --dir",
+    "build:win": "npm run typecheck && electron-vite build && electron-builder --win",
+    "build:mac": "npm run typecheck && electron-vite build && electron-builder --mac -c.mac.identity=-",
+    "build:linux": "npm run typecheck && electron-vite build && electron-builder --linux",
     "test:chain": "tsx scripts/chain-smoke.ts",
     "test:e2e": "electron-vite build && tsx scripts/e2e.ts",
     "test:unit": "tsx scripts/chain-unit.ts",
     "test": "npm run typecheck && npm run test:unit",
-    "icon": "tsx scripts/render-icon.ts"
+    "icon": "tsx scripts/render-icon.ts",
+    "postinstall": "node scripts/fix-node-pty.cjs"
   },
   "engines": {
     "node": ">=20"
@@ -51,5 +55,9 @@
     "prompt-chaining",
     "automation",
     "hooks"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mehmetkahya0/chain-prompt.git"
+  }
 }
