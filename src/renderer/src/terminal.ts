@@ -2,8 +2,17 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
-/** xterm.js bound to the main-process pty over the preload API. */
-export function mountTerminal(host: HTMLElement, initialScrollback: string): Terminal {
+export interface TerminalView {
+  /** Show the pty of another tab (replays its scrollback). */
+  attach(ws: string): Promise<void>
+  focus(): void
+}
+
+/**
+ * One xterm.js view bound to the pty of the active tab. Output of the other
+ * tabs is kept in main (scrollback) and replayed on switch.
+ */
+export function mountTerminal(host: HTMLElement): TerminalView {
   const term = new Terminal({
     fontFamily: '"Cascadia Mono", "Cascadia Code", Consolas, Menlo, "DejaVu Sans Mono", monospace',
     fontSize: 13,
@@ -23,6 +32,11 @@ export function mountTerminal(host: HTMLElement, initialScrollback: string): Ter
   const fit = new FitAddon()
   term.loadAddon(fit)
   term.open(host)
+  let active = ''
+  /** Bumped on every attach so a slow scrollback fetch can't overwrite a newer tab. */
+  let attachGen = 0
+  /** Output that arrived while the scrollback of the new tab was loading. */
+  let pending: string[] | null = null
 
   // Clipboard: Ctrl+C copies when there is a selection (otherwise it is SIGINT),
   // Ctrl+V / Ctrl+Shift+V paste (bracketed, via term.paste).
@@ -43,13 +57,17 @@ export function mountTerminal(host: HTMLElement, initialScrollback: string): Ter
     return true
   })
 
-  term.onData((d) => window.api.ptyWrite(d))
-  window.api.onPtyData((d) => term.write(d))
-  window.api.onPtyReset(() => {
+  term.onData((d) => active && window.api.ptyWrite(active, d))
+  window.api.onPtyData((ws, d) => {
+    if (ws !== active) return
+    if (pending) pending.push(d)
+    else term.write(d)
+  })
+  window.api.onPtyReset((ws) => {
+    if (ws !== active) return
     term.reset()
     doFit()
   })
-  if (initialScrollback) term.write(initialScrollback)
 
   let lastSize = ''
   const doFit = () => {
@@ -71,5 +89,21 @@ export function mountTerminal(host: HTMLElement, initialScrollback: string): Ter
     raf = requestAnimationFrame(doFit)
   }).observe(host)
   doFit()
-  return term
+
+  return {
+    async attach(ws: string) {
+      if (ws === active) return
+      active = ws
+      const g = ++attachGen
+      pending = []
+      term.reset()
+      const scrollback = await window.api.getScrollback(ws)
+      if (g !== attachGen) return
+      term.write(scrollback)
+      for (const d of pending) term.write(d)
+      pending = null
+      doFit()
+    },
+    focus: () => term.focus()
+  }
 }

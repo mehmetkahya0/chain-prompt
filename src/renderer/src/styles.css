@@ -673,3 +673,434 @@ legend {
   flex: 1 1 auto;
   justify-content: center;
 }
+
+/* ------------------------------------------------------------ tabs */
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px 8px 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  min-height: 34px;
+}
+.tab-list {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 240px;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.tab:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.tab.active {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
+}
+.tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--st-pending);
+  opacity: 0.6;
+}
+.tab[data-state='running'] .tab-dot,
+.tab[data-state='starting'] .tab-dot,
+.tab[data-state='pausing'] .tab-dot {
+  background: var(--st-running);
+  opacity: 1;
+}
+.tab[data-state='waiting_user'] .tab-dot,
+.tab[data-state='paused'] .tab-dot {
+  background: var(--st-waiting);
+  opacity: 1;
+}
+.tab[data-state='completed'] .tab-dot {
+  background: var(--st-done);
+  opacity: 1;
+}
+.tab-sched {
+  display: inline-flex;
+  color: var(--accent);
+}
+.tab-sched svg {
+  width: 12px;
+  height: 12px;
+}
+.tab-close {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tab-close svg {
+  width: 12px;
+  height: 12px;
+}
+.tab-close:hover:not(:disabled) {
+  background: var(--border-strong);
+  color: var(--text);
+}
+.tab-close:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+#btn-add-tab {
+  align-self: center;
+}
+
+/* ------------------------------------------------------------ header extras */
+.schedule-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.schedule-badge[hidden] {
+  display: none;
+}
+.btn.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.queue-actions .sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 3px 2px;
+  background: var(--border-strong);
+}
+
+/* ------------------------------------------------------------ variables bar */
+.variables-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.variables-bar[hidden] {
+  display: none;
+}
+.var-chip {
+  font: 11px var(--mono);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--st-done) 15%, transparent);
+  color: var(--st-done);
+}
+.var-chip.missing {
+  background: color-mix(in srgb, var(--st-waiting) 15%, transparent);
+  color: var(--st-waiting);
+}
+
+/* ------------------------------------------------------------ search + bulk */
+.queue-tools {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px 0 12px;
+}
+.queue-tools input[type='search'] {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+}
+.queue-tools .btn span {
+  display: none;
+}
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 8px 0 12px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.bulk-bar[hidden] {
+  display: none;
+}
+.bulk-bar .btn {
+  padding: 3px 6px;
+}
+#bulk-count {
+  font-size: 12px;
+  padding: 0 4px;
+}
+.select-box {
+  accent-color: var(--accent);
+  margin: 0 2px;
+}
+.card.selected {
+  outline: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* ------------------------------------------------------------ card extras */
+.tag.opt {
+  background: color-mix(in srgb, var(--st-running) 15%, transparent);
+  color: var(--st-running);
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: -2px;
+}
+.usage {
+  color: var(--muted);
+}
+.diffstat {
+  font: 11px var(--mono);
+  color: var(--st-done);
+}
+.output-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+}
+.output-toggle svg {
+  width: 13px;
+  height: 13px;
+}
+pre.output {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+}
+.advanced summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+.opt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  margin-top: 8px;
+}
+.opt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+.opt-field:last-child {
+  grid-column: 1 / -1;
+}
+.opt-field input,
+.opt-field select,
+.opt-field textarea {
+  padding: 4px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  min-width: 0;
+}
+.opt-field small {
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------ dialogs */
+.dialog.wide {
+  width: min(1100px, 95vw);
+}
+.dialog input[type='datetime-local'] {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+}
+.dialog textarea {
+  width: 100%;
+}
+.input-with-btn {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.input-with-btn input {
+  width: 170px !important;
+}
+.template-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.template {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+.template p {
+  margin: 2px 0 0;
+}
+.template-steps {
+  color: var(--muted);
+  cursor: help;
+}
+.variables-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dialog label.var-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.builtin-vars summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.builtin-vars ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.history-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 12px;
+  min-height: 300px;
+  max-height: 65vh;
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+}
+.history-list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.history-list li:hover,
+.history-list li.active {
+  background: var(--panel-2);
+}
+.history-list input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.history-detail {
+  overflow: auto;
+}
+.history-detail h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+table.runs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+table.runs th,
+table.runs td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+table.runs th {
+  color: var(--muted);
+  font-weight: 600;
+}
+table.runs tr.sub td {
+  border-bottom: 1px solid var(--border);
+  padding-top: 0;
+}
+table.runs tfoot td {
+  font-weight: 600;
+}
+.prompt-cell {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+table.runs .st-done td:nth-child(2) {
+  color: var(--st-done);
+}
+table.runs .st-error td:nth-child(2) {
+  color: var(--st-error);
+}
+table.shortcuts {
+  border-collapse: collapse;
+}
+table.shortcuts td {
+  padding: 4px 10px 4px 0;
+}
+kbd {
+  display: inline-block;
+  margin-right: 3px;
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  font: 11px var(--mono);
+}

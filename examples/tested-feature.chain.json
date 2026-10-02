@@ -1,0 +1,31 @@
+{
+  "format": "chain-prompt",
+  "version": 2,
+  "name": "tested-feature",
+  "description": "Plan, implement, keep the tests green, review with fresh eyes.",
+  "variables": [{ "name": "feature", "description": "What to build" }],
+  "steps": [
+    {
+      "prompt": "Read the codebase and write a short implementation plan for this feature to PLAN.md: {{feature}}\nDo not change any code yet. Do not ask questions; make reasonable assumptions and note them in PLAN.md."
+    },
+    {
+      "prompt": "Implement PLAN.md step by step.",
+      "when": "test -f PLAN.md"
+    },
+    {
+      "prompt": "Run the test suite and fix everything that fails.",
+      "verify": "npm test",
+      "fixPrompt": "The tests still fail:\n\n{{verify.output}}\n\nFix the cause, not the tests.",
+      "maxLoops": 3,
+      "idleTimeoutMin": 30
+    },
+    {
+      "prompt": "Review the diff of this work with fresh eyes: bugs, missing edge cases, leftover debug code. Fix what you find.",
+      "newSession": true,
+      "onError": "skip"
+    },
+    {
+      "prompt": "Write a concise CHANGELOG entry for {{feature}}. Notes from the review:\n\n{{prev.output}}"
+    }
+  ]
+}

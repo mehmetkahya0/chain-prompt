@@ -47,3 +47,33 @@ export function fmtDuration(ms: number): string {
 }
 
 export const fmtTime = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+export const fmtCost = (usd: number) => (usd < 0.01 && usd > 0 ? '<$0.01' : `$${usd.toFixed(2)}`)
+
+/** Estimated cost with a "~" (the "<$0.01" form already says it is approximate). */
+export const approxCost = (usd: number) => (usd < 0.01 && usd > 0 ? '<$0.01' : `~$${usd.toFixed(2)}`)
+
+export function fmtTokens(n: number): string {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M tok`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k tok`
+  return `${n} tok`
+}
+
+/** Two-click confirmation without a modal: first click arms the button for 3s. */
+export function confirmInline(btn: HTMLElement, question = 'Are you sure? Click again to confirm.'): boolean {
+  if (btn.dataset.armed) {
+    delete btn.dataset.armed
+    btn.classList.remove('armed')
+    return true
+  }
+  btn.dataset.armed = '1'
+  btn.classList.add('armed')
+  toast(question)
+  setTimeout(() => {
+    delete btn.dataset.armed
+    btn.classList.remove('armed')
+  }, 3000)
+  return false
+}
+
+export const isMac = /Mac/.test(navigator.userAgent)

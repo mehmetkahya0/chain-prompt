@@ -12,6 +12,8 @@ export interface LaunchOptions {
   claudeCommand: string
   settingsFile: string
   permissionMode: PermissionMode
+  /** Model for this launch ('' = whatever claude / extraArgs choose). */
+  model?: string
   extraArgs: string
   cols: number
   rows: number
@@ -36,12 +38,14 @@ const STRIP_ENV = new Set([
   'CLAUDE_CODE_SSE_PORT'
 ])
 
-export function buildClaudeArgs(o: Pick<LaunchOptions, 'mode' | 'settingsFile' | 'permissionMode' | 'extraArgs'>): string[] {
+export function buildClaudeArgs(o: Pick<LaunchOptions, 'mode' | 'settingsFile' | 'permissionMode' | 'extraArgs' | 'model'>): string[] {
   const args = ['--settings', o.settingsFile]
   if (o.mode === 'continue') args.push('--continue')
   if (o.permissionMode !== 'default') args.push('--permission-mode', o.permissionMode)
   const extra = o.extraArgs.trim()
   if (extra) args.push(...extra.split(/\s+/))
+  // After extraArgs, so a per-step model wins over a --model in extraArgs.
+  if (o.model) args.push('--model', o.model)
   return args
 }
 
@@ -85,6 +89,8 @@ export class ClaudeSession extends EventEmitter {
   readonly launchId: string
   readonly cwd: string
   readonly mode: SessionMode
+  readonly model: string
+  readonly permissionMode: PermissionMode
   private proc: pty.IPty | null = null
   private scrollback = ''
   lastOutputAt = Date.now()
@@ -94,6 +100,8 @@ export class ClaudeSession extends EventEmitter {
     this.launchId = opts.launchId ?? randomUUID()
     this.cwd = opts.cwd
     this.mode = opts.mode
+    this.model = opts.model ?? ''
+    this.permissionMode = opts.permissionMode
   }
 
   get alive(): boolean {

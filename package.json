@@ -41,7 +41,11 @@
     "build:linux": "npm run typecheck && electron-vite build && electron-builder --linux",
     "test:chain": "tsx scripts/chain-smoke.ts",
     "test:e2e": "electron-vite build && tsx scripts/e2e.ts",
+    "test:e2e:ui": "electron-vite build && tsx scripts/e2e-ui.ts",
+    "test:e2e:parallel": "electron-vite build && tsx scripts/e2e-parallel.ts",
     "test:unit": "tsx scripts/chain-unit.ts",
+    "test:headless": "tsx scripts/headless-test.ts",
+    "cli": "tsx src/cli/index.ts",
     "test": "npm run typecheck && npm run test:unit",
     "icon": "tsx scripts/render-icon.ts",
     "postinstall": "node scripts/fix-node-pty.cjs"

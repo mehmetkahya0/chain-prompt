@@ -16,8 +16,16 @@
       </div>
       <span id="chain-state" class="pill" data-state="idle">Ready</span>
       <p id="chain-message" class="status-message"></p>
+      <span id="schedule-badge" class="schedule-badge" hidden></span>
+      <button id="btn-history" class="btn ghost" title="Run history"></button>
+      <button id="btn-shortcuts" class="btn ghost" title="Keyboard shortcuts"></button>
       <button id="btn-settings" class="btn ghost" title="Settings"></button>
     </header>
+
+    <nav class="tabs" id="tabs" aria-label="Workspaces">
+      <div class="tab-list" id="tab-list" role="tablist"></div>
+      <button id="btn-add-tab" class="icon-btn" title="New tab (another folder / chain)"></button>
+    </nav>
 
     <main class="split" id="split">
       <section class="panel left" aria-label="Prompt queue">
@@ -31,7 +39,7 @@
 
         <form id="composer" class="composer">
           <label for="new-prompt" class="sr-only">New prompt</label>
-          <textarea id="new-prompt" rows="4" placeholder="Write a prompt… (Ctrl+Enter to add)"></textarea>
+          <textarea id="new-prompt" rows="4" placeholder="Write a prompt… (Ctrl+Enter to add) — use {{name}} for variables"></textarea>
           <div class="composer-row">
             <label class="check" title="Reset the context before this step (/clear or a claude restart)">
               <input type="checkbox" id="new-session" /> Run in a new session
@@ -40,15 +48,37 @@
           </div>
         </form>
 
+        <div id="variables-bar" class="variables-bar" hidden></div>
+
         <div class="queue-bar">
           <span id="queue-count" class="muted">Queue is empty</span>
           <div class="queue-actions">
+            <button id="btn-templates" class="btn ghost small" title="Start from a template"></button>
+            <button id="btn-variables" class="btn ghost small" title="Chain variables"></button>
+            <button id="btn-schedule" class="btn ghost small" title="Schedule the chain"></button>
+            <span class="sep" aria-hidden="true"></span>
             <button id="btn-save" class="btn ghost small" title="Save chain as JSON"></button>
             <button id="btn-load" class="btn ghost small" title="Load a JSON chain"></button>
             <button id="btn-reset-all" class="btn ghost small" title="Reset every step to pending"></button>
             <button id="btn-clear" class="btn ghost small" title="Clear the queue"></button>
             <button id="btn-logs" class="btn ghost small" title="Open the log folder"></button>
           </div>
+        </div>
+
+        <div class="queue-tools">
+          <input id="queue-search" type="search" placeholder="Filter steps…" aria-label="Filter steps" />
+          <button id="btn-select" class="btn ghost small" title="Select several steps"></button>
+        </div>
+        <div id="bulk-bar" class="bulk-bar" hidden>
+          <span id="bulk-count"></span>
+          <button class="btn ghost small" data-bulk="all">All</button>
+          <button class="btn ghost small" data-bulk="none">None</button>
+          <span class="spacer"></span>
+          <button class="btn ghost small" data-bulk="skip" title="Skip the selected steps">Skip</button>
+          <button class="btn ghost small" data-bulk="reset" title="Reset the selected steps">Reset</button>
+          <button class="btn ghost small" data-bulk="duplicate" title="Duplicate the selected steps">Duplicate</button>
+          <button class="btn ghost small" data-bulk="newSessionOn" title="Reset context before each selected step">New session</button>
+          <button class="btn ghost small danger-ghost" data-bulk="remove" title="Delete the selected steps">Delete</button>
         </div>
 
         <ol id="queue" class="queue" aria-label="Queue"></ol>
@@ -100,6 +130,25 @@
               <option value="restart">restart claude</option>
             </select>
           </label>
+          <label class="check"><input type="checkbox" name="detectQuestions" /> Wait for me when claude ends a turn with a question</label>
+          <label>Retries after an API error <input type="number" name="retryMax" min="0" max="10" step="1" /></label>
+          <label>Wait before a retry (s) <input type="number" name="retryDelaySec" min="0" max="3600" step="5" /></label>
+          <label>Timeout for condition / verify commands (min) <input type="number" name="commandTimeoutMin" min="1" max="600" step="1" /></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Git</legend>
+          <label class="check"><input type="checkbox" name="gitCheckpoints" /> Checkpoint before each step (roll back, diff stats)</label>
+          <label>When the chain completes
+            <select name="gitFinishAction">
+              <option value="none">do nothing</option>
+              <option value="commit">commit on the current branch</option>
+              <option value="branch">commit on a new branch</option>
+              <option value="branchPush">commit on a new branch and push</option>
+            </select>
+          </label>
+          <label>New branch prefix <input type="text" name="gitBranchPrefix" placeholder="chain-prompt/" /></label>
+          <p class="muted small">Checkpoints are stored under <code>refs/chain-prompt/</code>; your branch, index and stash are not touched.</p>
         </fieldset>
 
         <fieldset>
@@ -107,8 +156,19 @@
           <label class="check"><input type="checkbox" name="desktopNotifications" /> Desktop notifications</label>
           <label class="check"><input type="checkbox" name="ntfyEnabled" /> ntfy notifications</label>
           <label>ntfy server <input type="url" name="ntfyServer" placeholder="https://ntfy.sh" /></label>
-          <label>ntfy topic <input type="text" name="ntfyTopic" placeholder="e.g. my-secret-topic-123" autocomplete="off" /></label>
-          <p class="muted small">A topic works like a public channel — pick a name that is hard to guess.</p>
+          <label>ntfy topic
+            <span class="input-with-btn">
+              <input type="text" name="ntfyTopic" placeholder="e.g. my-secret-topic-123" autocomplete="off" />
+              <button type="button" id="btn-random-topic" class="btn ghost small" title="Generate a hard-to-guess topic">Random</button>
+            </span>
+          </label>
+          <label>ntfy access token <input type="text" name="ntfyToken" placeholder="optional, for protected topics" autocomplete="off" /></label>
+          <p class="muted small">A topic on a public server works like a public channel — use a random name, or your own server with a token.</p>
+          <label>Slack webhook URL <input type="url" name="slackWebhookUrl" placeholder="https://hooks.slack.com/services/…" autocomplete="off" /></label>
+          <label>Discord webhook URL <input type="url" name="discordWebhookUrl" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" /></label>
+          <label>Telegram bot token <input type="text" name="telegramBotToken" placeholder="123456:ABC…" autocomplete="off" /></label>
+          <label>Telegram chat id <input type="text" name="telegramChatId" placeholder="e.g. 123456789" autocomplete="off" /></label>
+          <div><button type="button" id="btn-test-notify" class="btn small">Save &amp; send a test notification</button></div>
         </fieldset>
 
         <fieldset>
@@ -128,6 +188,66 @@
           <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
           <button value="save" id="settings-save" class="btn primary">Save</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="templates-dialog" class="dialog">
+      <form method="dialog">
+        <h2>Templates</h2>
+        <p class="muted small">Loading a template replaces the queue of this tab. Variables are asked for afterwards.</p>
+        <ul id="template-list" class="template-list"></ul>
+        <div class="dialog-actions"><button value="cancel" class="btn ghost">Close</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="variables-dialog" class="dialog">
+      <form method="dialog" id="variables-form">
+        <h2>Chain variables</h2>
+        <p class="muted small">Use <code>{{name}}</code> in a prompt. Rows appear here automatically.</p>
+        <div id="variables-fields" class="variables-fields"></div>
+        <details class="builtin-vars">
+          <summary>Built-in variables</summary>
+          <ul id="builtin-vars"></ul>
+        </details>
+        <div class="dialog-actions">
+          <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
+          <button value="save" class="btn primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="schedule-dialog" class="dialog">
+      <form method="dialog" id="schedule-form">
+        <h2>Schedule</h2>
+        <p class="muted small">The chain of this tab starts by itself at this time. Chain Prompt must be running; the machine is kept awake.</p>
+        <label>Start at <input type="datetime-local" name="at" required /></label>
+        <label class="check"><input type="checkbox" name="daily" /> Repeat every day</label>
+        <div class="dialog-actions">
+          <button value="clear" class="btn ghost danger-ghost" formnovalidate>Remove schedule</button>
+          <span class="spacer"></span>
+          <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
+          <button value="save" class="btn primary">Schedule</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="history-dialog" class="dialog wide">
+      <form method="dialog">
+        <h2>Run history <span id="history-folder" class="muted small"></span></h2>
+        <p class="muted small">Tick two runs to compare them.</p>
+        <div class="history-layout">
+          <ul id="history-list" class="history-list"></ul>
+          <div id="history-detail" class="history-detail"><p class="muted">Pick a run.</p></div>
+        </div>
+        <div class="dialog-actions"><button value="cancel" class="btn ghost">Close</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="shortcuts-dialog" class="dialog">
+      <form method="dialog">
+        <h2>Keyboard shortcuts</h2>
+        <table id="shortcuts-table" class="shortcuts"></table>
+        <div class="dialog-actions"><button value="cancel" class="btn ghost">Close</button></div>
       </form>
     </dialog>
 

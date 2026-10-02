@@ -1,14 +1,21 @@
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
-import type { SessionInfo, SessionMode, Settings } from '../../shared/types'
+import type { PermissionMode, SessionInfo, SessionMode, Settings } from '../../shared/types'
 import { HookServer, type HookEvent } from './hookServer'
 import { removeHookSettingsFile, writeHookSettingsFile } from './claudeSettings'
 import { ClaudeSession } from './ptySession'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** Per-launch overrides (per-step model / permission mode). */
+export interface LaunchOverrides {
+  model?: string
+  permissionMode?: PermissionMode
+}
+
 /**
- * Owns the hook server and the one live claude pty. Emits:
+ * Owns one live claude pty (one tab). The hook server is shared between tabs;
+ * events are routed by launch id. Emits:
  *  - 'data' (chunk)        terminal output of the current session
  *  - 'reset'               a new pty replaced the old one (clear the terminal)
  *  - 'hook' (HookEvent)    hook calls from the *current* launch only
@@ -16,7 +23,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
  *  - 'change'              SessionInfo changed
  */
 export class SessionManager extends EventEmitter {
-  readonly hooks = new HookServer()
+  readonly hooks: HookServer
+  private readonly ownsHooks: boolean
+  private readonly hookListener = (ev: HookEvent) => this.onHook(ev)
   private session: ClaudeSession | null = null
   private settingsFile: string | null = null
   private cols = 100
@@ -29,9 +38,14 @@ export class SessionManager extends EventEmitter {
   cwd: string | null = null
   mode: SessionMode = 'new'
 
-  constructor(private readonly getSettings: () => Settings) {
+  constructor(
+    private readonly getSettings: () => Settings,
+    hooks?: HookServer
+  ) {
     super()
-    this.hooks.on('hook', (ev: HookEvent) => this.onHook(ev))
+    this.ownsHooks = !hooks
+    this.hooks = hooks ?? new HookServer()
+    this.hooks.on('hook', this.hookListener)
   }
 
   async init(): Promise<void> {
@@ -53,7 +67,7 @@ export class SessionManager extends EventEmitter {
   }
 
   /** Kill any running session and start claude fresh in `cwd`. */
-  start(cwd: string, mode: SessionMode): ClaudeSession {
+  start(cwd: string, mode: SessionMode, overrides: LaunchOverrides = {}): ClaudeSession {
     this.dispose()
     const s = this.getSettings()
     this.cwd = cwd
@@ -74,7 +88,8 @@ export class SessionManager extends EventEmitter {
       mode,
       claudeCommand: s.claudeCommand || 'claude',
       settingsFile: this.settingsFile,
-      permissionMode: s.permissionMode,
+      permissionMode: overrides.permissionMode ?? s.permissionMode,
+      model: overrides.model ?? '',
       extraArgs: s.extraArgs,
       cols: this.cols,
       rows: this.rows
@@ -150,6 +165,7 @@ export class SessionManager extends EventEmitter {
 
   async shutdown(): Promise<void> {
     this.dispose()
-    await this.hooks.stop()
+    this.hooks.off('hook', this.hookListener)
+    if (this.ownsHooks) await this.hooks.stop()
   }
 }

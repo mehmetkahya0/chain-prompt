@@ -1,16 +1,51 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { DEFAULT_SETTINGS, type SessionMode, type Settings, type Step } from '../shared/types'
+import { randomUUID } from 'node:crypto'
+import { DEFAULT_SETTINGS, type ChainVariable, type Schedule, type SessionMode, type Settings, type Step } from '../shared/types'
+
+export interface PersistedWorkspace {
+  id: string
+  /** Chain name (from a loaded file / template); used in logs and the tab label. */
+  name: string
+  cwd: string | null
+  mode: SessionMode
+  steps: Step[]
+  variables: ChainVariable[]
+  schedule: Schedule | null
+}
 
 export interface PersistedState {
   settings: Settings
   recentFolders: string[]
-  cwd: string | null
-  mode: SessionMode
-  steps: Step[]
+  workspaces: PersistedWorkspace[]
 }
 
 const MAX_RECENT = 10
+
+export function emptyWorkspace(cwd: string | null = null): PersistedWorkspace {
+  return { id: randomUUID(), name: '', cwd, mode: 'new', steps: [], variables: [], schedule: null }
+}
+
+function readSteps(raw: unknown): Step[] {
+  return Array.isArray(raw) ? raw.filter((s) => s && typeof s.prompt === 'string' && typeof s.id === 'string') : []
+}
+
+function readWorkspace(raw: Record<string, unknown>): PersistedWorkspace {
+  const sched = raw.schedule as Schedule | null | undefined
+  return {
+    id: typeof raw.id === 'string' ? raw.id : randomUUID(),
+    name: typeof raw.name === 'string' ? raw.name : '',
+    cwd: typeof raw.cwd === 'string' ? raw.cwd : null,
+    mode: raw.mode === 'continue' ? 'continue' : 'new',
+    steps: readSteps(raw.steps),
+    variables: Array.isArray(raw.variables)
+      ? (raw.variables as ChainVariable[])
+          .filter((v) => v && typeof v.name === 'string')
+          .map((v) => ({ name: v.name, value: typeof v.value === 'string' ? v.value : '', description: v.description }))
+      : [],
+    schedule: sched && typeof sched.at === 'number' ? { at: sched.at, daily: !!sched.daily } : null
+  }
+}
 
 /** Tiny JSON file store in Electron's userData dir; writes are debounced and atomic. */
 export class Store {
@@ -22,16 +57,18 @@ export class Store {
   }
 
   private load(): PersistedState {
-    const empty: PersistedState = { settings: { ...DEFAULT_SETTINGS }, recentFolders: [], cwd: null, mode: 'new', steps: [] }
+    const empty: PersistedState = { settings: { ...DEFAULT_SETTINGS }, recentFolders: [], workspaces: [emptyWorkspace()] }
     try {
       if (!existsSync(this.file)) return empty
-      const raw = JSON.parse(readFileSync(this.file, 'utf8')) as Partial<PersistedState>
+      const raw = JSON.parse(readFileSync(this.file, 'utf8')) as Record<string, unknown>
+      // Before tabs existed the state held a single cwd/mode/steps.
+      const list = Array.isArray(raw.workspaces)
+        ? (raw.workspaces as Record<string, unknown>[]).filter((w) => w && typeof w === 'object').map(readWorkspace)
+        : [readWorkspace(raw)]
       return {
-        settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
-        recentFolders: Array.isArray(raw.recentFolders) ? raw.recentFolders.filter((f) => typeof f === 'string') : [],
-        cwd: typeof raw.cwd === 'string' ? raw.cwd : null,
-        mode: raw.mode === 'continue' ? 'continue' : 'new',
-        steps: Array.isArray(raw.steps) ? raw.steps.filter((s) => s && typeof s.prompt === 'string' && typeof s.id === 'string') : []
+        settings: { ...DEFAULT_SETTINGS, ...((raw.settings as Partial<Settings>) ?? {}) },
+        recentFolders: Array.isArray(raw.recentFolders) ? raw.recentFolders.filter((f): f is string => typeof f === 'string') : [],
+        workspaces: list.length ? list : [emptyWorkspace()]
       }
     } catch {
       return empty

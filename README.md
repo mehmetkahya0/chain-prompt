@@ -17,7 +17,7 @@ It detects completion through Claude Code hooks, not by parsing terminal output.
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-hooks%20driven-D97757?logo=anthropic&logoColor=white)
 ![Tested with](https://img.shields.io/badge/tested%20with-claude%202.1.286-D97757)
-![Tests](https://img.shields.io/badge/tests-unit%20%7C%20real--claude%20%7C%20e2e-3fb970)
+![Tests](https://img.shields.io/badge/tests-unit%20%7C%20integration%20%7C%20real--claude%20%7C%20e2e-3fb970)
 
 <br />
 
@@ -45,6 +45,13 @@ It detects completion through Claude Code hooks, not by parsing terminal output.
 - [Build from source](#build-from-source)
 - [Usage](#usage)
 - [Chain files (templates)](#chain-files-templates)
+- [Step options](#step-options)
+- [Variables and templates](#variables-and-templates)
+- [Git checkpoints](#git-checkpoints)
+- [Cost and run history](#cost-and-run-history)
+- [Tabs, search, bulk actions and shortcuts](#tabs-search-bulk-actions-and-shortcuts)
+- [Scheduling](#scheduling)
+- [Headless CLI](#headless-cli)
 - [Settings](#settings)
 - [Notifications, sleep and logs](#notifications-sleep-and-logs)
 - [How step completion is detected](#how-step-completion-is-detected)
@@ -84,6 +91,20 @@ session at any time, exactly as in your own terminal.
 | ☕ | **Stays awake** | `powerSaveBlocker` prevents system sleep while a chain is active. |
 | 📝 | **Run logs** | Per-run `.log` and `.json` files with timings and claude's last message for every step, in `<folder>/.chain-prompt/logs/`. |
 | 📁 | **Recent folders** | Native folder picker plus a dropdown of the last 10 folders. Switching folders starts a fresh session. |
+| 🗂️ | **Tabs** | Several folders, each with its own claude session and chain, running in parallel. |
+| ✅ | **Verify and fix loops** | Run a shell command (e.g. `npm test`) after a step. If it fails, a fix prompt with the output is sent, up to N times. |
+| 🔀 | **Conditional steps** | A step can run only if a shell command succeeds. |
+| 🔁 | **Automatic retries** | API errors are retried after a delay. Per step: pause, retry or skip on error. |
+| ❓ | **Question detection** | A turn that ends with a question waits for you instead of moving on. |
+| 🧩 | **Variables and templates** | `{{feature}}`, `{{prev.output}}`, `{{date}}`… in prompts, plus a built-in template library. |
+| 🎛️ | **Per-step settings** | Model, permission mode and stall timeout per step. |
+| 🌿 | **Git checkpoints** | A snapshot before every step: one-click roll back, `diff --stat` per step, commit / branch / push at the end. |
+| 💲 | **Cost tracking** | Tokens and estimated cost per step and per chain, read from claude's transcript. |
+| 📊 | **Run history** | Every past run of a folder, with step details and a side-by-side comparison of two runs. |
+| ⏰ | **Scheduling** | Start a chain at a set time, once or every day. |
+| 🖥️ | **Headless CLI** | `chain-prompt run my.chain.json --cwd .` for CI and servers. |
+| 📣 | **More channels** | Slack, Discord and Telegram besides desktop and ntfy (with access tokens). |
+| ⌨️ | **Keyboard, search, bulk** | Shortcuts for every control, a step filter, and bulk skip / reset / delete. |
 
 ## Promo video
 
@@ -258,7 +279,7 @@ npm run build:dir    # unpacked app only (faster, no installer)
 |---|---|
 | ▶ **Start** | Runs the first pending, interrupted or failed step and continues down the queue. |
 | ⏸ **Pause** | Lets the current step finish, then holds. During start-up it pauses immediately and nothing is sent. |
-| ⏯ **Resume** | Continues from where the chain stopped. A failed step is retried. |
+| ⏯ **Resume** | Continues from where the chain stopped. A failed step is retried. If claude asked a question, Resume carries on without answering. |
 | ⏹ **Stop** | Sends <kbd>Esc</kbd> to interrupt claude's current turn and marks the step *Interrupted*. |
 | ⏭ **Skip** | Marks the next pending step as *Skipped*. It is also allowed while a step is running. |
 
@@ -268,7 +289,7 @@ npm run build:dir    # unpacked app only (faster, no installer)
 |---|---|---|
 | ◷ **Pending** | grey | Waiting its turn. |
 | ◌ **Running** | blue (spinning) | The prompt has been sent and claude is working. A live timer is shown. |
-| 🔔 **Needs you** | amber (ringing) | claude asked for a permission or input. Answer in the terminal and the chain carries on. |
+| 🔔 **Needs you** | amber (ringing) | claude asked for a permission or input, or ended its turn with a question. Answer in the terminal and the chain carries on. |
 | ✓ **Done** | green | The `Stop` hook arrived. Start/end time and duration are shown. |
 | ✕ **Error** | red | API error, claude exited, or the prompt was never accepted. The reason is shown on the card. |
 | ⏵ **Skipped** | slate | Skipped by you. |
@@ -288,12 +309,18 @@ Use **Save** and **Load** (in the queue toolbar) to keep reusable chains as JSON
 ```json
 {
   "format": "chain-prompt",
-  "version": 1,
+  "version": 2,
   "name": "feature-workflow",
+  "variables": [{ "name": "feature", "description": "What to build", "default": "" }],
   "steps": [
-    { "prompt": "Write an implementation plan for TODO.md to PLAN.md. Do not change code yet." },
-    { "prompt": "Implement PLAN.md. Do not ask questions; make reasonable assumptions." },
-    { "prompt": "Run the tests and fix anything you broke." },
+    { "prompt": "Write an implementation plan for {{feature}} to PLAN.md. Do not change code yet." },
+    { "prompt": "Implement PLAN.md. Do not ask questions; make reasonable assumptions.", "model": "opus" },
+    {
+      "prompt": "Run the tests and fix anything you broke.",
+      "verify": "npm test",
+      "fixPrompt": "The tests still fail:\n\n{{verify.output}}",
+      "maxLoops": 3
+    },
     { "prompt": "Review this session's diff with fresh eyes and fix what you find.", "newSession": true },
     { "prompt": "Write a concise CHANGELOG entry for the work above." }
   ]
@@ -303,16 +330,193 @@ Use **Save** and **Load** (in the queue toolbar) to keep reusable chains as JSON
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `format` | `"chain-prompt"` | no | Identifies the file. |
-| `version` | `1` | no | File format version. |
-| `name` | string | no | Display name. The file name is used when saving. |
-| `steps[].prompt` | string | **yes** | The prompt text. Multi-line text is fine. |
+| `version` | `1` or `2` | no | File format version. Version 1 files (only `prompt` and `newSession`) still load. |
+| `name` | string | no | Display name, also used in logs and as the tab label. The file name is used when saving. |
+| `variables[]` | `{name, description?, default?}` | no | Variables the prompts use as `{{name}}`. You are asked for missing values after loading. |
+| `steps[].prompt` | string | **yes** | The prompt text. Multi-line text and `{{variables}}` are fine. |
 | `steps[].newSession` | boolean | no | Reset the context before this step. |
+| `steps[].model` | string | no | Model for this step (`opus`, `sonnet`, `claude-opus-5-5`, …). |
+| `steps[].permissionMode` | `default` \| `acceptEdits` \| `bypassPermissions` | no | Permission mode for this step. |
+| `steps[].idleTimeoutMin` | number | no | Stall warning for this step (minutes, `0` = off). |
+| `steps[].onError` | `pause` \| `retry` \| `skip` | no | What happens when the step fails. Default `pause`. |
+| `steps[].when` | string | no | Shell command run first; a non-zero exit skips the step. |
+| `steps[].verify` | string | no | Shell command run after the step; a non-zero exit means the step failed. |
+| `steps[].fixPrompt` | string | no | Sent when `verify` fails (default: the step prompt again). |
+| `steps[].maxLoops` | number | no | How many fix attempts before the step fails. Default `0`. |
 
-A bare array of strings (`["first prompt", "second prompt"]`) also loads. A ready-to-use template is available at
-[`examples/feature-workflow.chain.json`](examples/feature-workflow.chain.json).
+See [Step options](#step-options) for how these behave. A bare array of strings (`["first prompt", "second prompt"]`) also loads. Ready-to-use chains are in
+[`examples/`](examples/): [`feature-workflow.chain.json`](examples/feature-workflow.chain.json) (version 1) and
+[`tested-feature.chain.json`](examples/tested-feature.chain.json) (version 2: a variable, a condition, a verify
+loop and `{{prev.output}}`).
 
 The current queue and each step's status are also saved automatically to `<userData>/state.json`, so they
 survive restarts.
+
+## Step options
+
+Every option is set per step: hover a card, click ✎ **Edit**, and open **Step options**. Cards show a small tag
+for each option that is set.
+
+| Option | What happens |
+|---|---|
+| **Model** | claude is restarted with `--continue --model <name>` before the step, so the conversation is kept. The next step without a model switches back the same way. |
+| **Permission mode** | Same as the model: a restart with `--continue --permission-mode <mode>`. |
+| **On error** | `pause` (default) stops the chain at the failed step. `retry` tries again (see **Settings → Retries**). `skip` leaves the step as *Error* and goes on with the next one. |
+| **Stall warning** | Overrides the global stall timeout for this step (e.g. longer for a long test run). |
+| **Run only if** | A shell command run in the folder before the step. Exit code `0` runs the step; anything else marks it *Skipped* ("condition not met"). Example: `test -f PLAN.md`, `git diff --quiet || exit 0`. |
+| **Verify with** | A shell command run after claude finishes the step. Exit code `0` means *Done*. |
+| **Fix attempts / fix prompt** | When verification fails and attempts are left, the fix prompt is sent in the same session with the command output in `{{verify.output}}`, and the command runs again. When none are left, the step fails (and *On error* decides what happens next). |
+
+Commands run in your login shell (`$SHELL -l -c` on macOS/Linux, PowerShell on Windows) with a timeout from
+**Settings → Timeout for condition / verify commands**. **Stop** kills a running command.
+
+**API errors** (the `StopFailure` hook: rate limits, overload, …) are retried automatically for every step:
+**Settings → Retries after an API error** (default 2) after **Wait before a retry** (default 30 s). Only when the
+retries are used up does the step fail.
+
+**Questions.** When claude ends a turn with a question (*"Should I…?"*, *"Let me know if…"*, an option list),
+the step switches to *Needs you* and you are notified, instead of the next prompt being sent. Answer in the
+terminal and the chain carries on after that turn, or press **Resume** to continue without answering. The check
+is a heuristic on claude's last paragraph; turn it off in **Settings → Wait for me when claude ends a turn with a
+question**.
+
+## Variables and templates
+
+Write `{{name}}` anywhere in a prompt or fix prompt. A **Variables** bar appears above the queue; a yellow
+chip means the value is still missing, and **Start** refuses to run until it is filled in. Click the bar or the
+`{ }` button to edit the values. They are saved with the tab and written into saved chain files as defaults.
+
+Built-in variables are filled in by the app:
+
+| Variable | Value |
+|---|---|
+| `{{folder}}`, `{{folderName}}` | Full path / name of the working folder |
+| `{{date}}`, `{{time}}` | Today (`YYYY-MM-DD`) and now (`HH:MM`) |
+| `{{step}}` | Number of the current step |
+| `{{prev.output}}` | claude's last message from the previous finished step, to pass results along |
+| `{{verify.output}}` | Output of the failed verify command (in fix prompts) |
+
+Unknown names are left as they are, so a typo stays visible in the prompt.
+
+The **Templates** button offers ready-made chains: *Feature workflow*, *Fix a bug*, *Refactor*, *Write tests*,
+*Security review*, *Prepare a pull request* and *Update docs*. Loading one replaces the queue of the tab and asks
+for its variables. The verify steps in the templates use `npm test`; change it in the step options if your
+project uses something else.
+
+## Git checkpoints
+
+When the folder is a git repository and **Settings → Checkpoint before each step** is on (default), the app
+takes a snapshot of the whole working tree (tracked and untracked files, `.gitignore` respected) right before
+each step. It is a commit built with a temporary index and stored under `refs/chain-prompt/step-<id>`. **Your
+branch, index, stash and working tree are not touched.**
+
+- **Diff per step.** After a step, its changes are measured against the checkpoint. The summary (`3 files
+  changed, 42 insertions(+), 7 deletions(-)`) is shown on the card, the full `--stat` is in the run log.
+- **Roll back.** The ↶ button on a card restores the folder to how it was *before that step*: changed and
+  deleted files come back, files created since are removed, and if claude made commits the branch is moved back
+  (they stay in the reflog). That step and every later one become *Pending* again. Ignored files (e.g.
+  `node_modules`) are never touched. Click twice to confirm.
+- **At the end of the chain** (**Settings → When the chain completes**): do nothing, commit everything on the
+  current branch, commit on a new branch (`chain-prompt/<timestamp>`, prefix configurable), or commit on a new
+  branch and `git push -u origin`. The commit uses your git identity and hooks.
+
+Large untracked files that are not ignored are stored in the snapshots too, so keep build output in
+`.gitignore`. Remove old snapshots with `git for-each-ref --format='%(refname)' refs/chain-prompt/ | xargs -n1 git update-ref -d`.
+
+## Cost and run history
+
+When a step finishes, the app reads claude's session transcript (its path comes with the `Stop` hook) and sums
+the token usage of that step's turns: input, output, cache write and cache read. The card shows the output
+tokens and an estimated cost; hover for the full breakdown and model. The queue bar shows the chain total.
+
+> [!NOTE]
+> The cost is an **estimate from public Claude API list prices**. With a Claude subscription you are not billed
+> per token, so read it as "what this would cost on the API". Tokens used by subagents are in separate
+> transcript files and are not counted. Unknown models show tokens but no cost.
+
+Each step's card can show **claude's reply** (its last message) via *Show claude's reply*.
+
+The **History** button (clock icon, top right) lists every run in the folder's `.chain-prompt/logs/`, newest
+first, with done/failed counts, duration and cost. Click a run for the per-step table (status, time, cost,
+changes, reply). Tick two runs to compare them side by side, with the time difference per step.
+
+## Tabs, search, bulk actions and shortcuts
+
+**Tabs.** **+** (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>) opens a new tab. Each tab has its own folder,
+claude session, queue, variables and schedule, and the chains of different tabs **run at the same time**. The
+dot on a tab shows its state (blue running, amber needs you / paused, green done). The terminal shows the
+active tab; output of the others is kept and replayed when you switch. A tab with a running chain can't be
+closed. All tabs are restored after a restart.
+
+**Search.** The *Filter steps…* box shows only steps whose prompt, reply, note, model or verify command contains
+the text. Drag-and-drop is off while filtering.
+
+**Bulk actions.** The ☑ button (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>) shows a checkbox on every card
+and a bar to *Skip*, *Reset*, *Duplicate*, set *New session* or *Delete* the selected steps.
+
+**Keyboard shortcuts** (<kbd>⌘</kbd> instead of <kbd>Ctrl</kbd> on macOS; they also work while the terminal has
+focus; <kbd>Ctrl</kbd>+<kbd>/</kbd> shows the list):
+
+| Keys | Action |
+|---|---|
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> | Start / resume |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> | Pause after the current step |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> | Stop |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> | Skip the next step |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> | Write a new prompt |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | Filter the steps |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> | Select steps (bulk actions) |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> / <kbd>W</kbd> | New tab / close tab |
+| <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | Next / previous tab |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> | Run history |
+| <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
+
+## Scheduling
+
+The ⏰ button opens the schedule of the current tab: pick a date and time, optionally *Repeat every day*. At that
+time the chain starts by itself (as if you pressed **Start**). The next run is shown in the header and on the
+tab. If the app was closed or the machine was asleep and the time passed by more than 30 minutes, the run is
+skipped and you get a notification instead of a surprise start.
+
+Chain Prompt has to be running for this. **While a schedule is set, the machine is kept awake**
+(`powerSaveBlocker`), so remove the schedule when you no longer need it.
+
+## Headless CLI
+
+Run a chain without the window, e.g. on a server or in CI, and get an exit code:
+
+```bash
+# from a source checkout (plain Node, no Electron)
+npm run cli -- run examples/tested-feature.chain.json --cwd ../my-project --var feature="dark mode"
+
+# with an installed app (macOS / Linux)
+"/Applications/Chain Prompt.app/Contents/MacOS/Chain Prompt" run my.chain.json --cwd .
+./Chain-Prompt-linux-x86_64.AppImage run my.chain.json --cwd . --permission-mode acceptEdits
+```
+
+| Option | Meaning |
+|---|---|
+| `--cwd <dir>` | Working folder (default: current directory) |
+| `--var name=value` | Set a chain variable (repeatable) |
+| `--continue` | Start claude with `--continue` |
+| `--permission-mode <m>` | `default`, `acceptEdits` or `bypassPermissions` |
+| `--model <name>` | Model for steps that don't set their own |
+| `--claude <cmd>` | claude command |
+| `--delay <s>` | Pause between steps |
+| `--wait-user <min>` | How long to wait when claude needs a human (default `0`: fail at once) |
+| `--detect-questions` | Treat a turn ending in a question as "needs a human" (off by default headless) |
+| `--git-finish <action>` | `none`, `commit`, `branch` or `branchPush` |
+| `--no-checkpoints` | No git checkpoints |
+| `--tui` | Mirror claude's terminal to stdout instead of the progress log |
+| `--settings <state.json>` | (`npm run cli` only) use the app's saved settings, e.g. for notification channels |
+
+Exit codes: `0` all steps done · `1` a step failed · `2` bad usage (missing file or variable) · `3` claude needed
+a human (permission prompt, question, folder trust or login) · `130` interrupted with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
+Nobody can answer prompts in a headless run, so use `--permission-mode acceptEdits` (or `bypassPermissions` in
+a disposable environment) and a folder claude already trusts. The run log and history are written as usual. The
+installed app uses its saved settings (remote notification channels, git options); desktop notifications are
+off. On Windows the GUI build has no console output; use `npm run cli` there.
 
 ## Settings
 
@@ -324,12 +528,24 @@ Open with the ⚙ button in the top-right corner. Changes apply the next time cl
 | **Delay between steps** | 2 s | Pause between the `Stop` hook and typing the next prompt. |
 | **Stall warning** | 10 min | If a running step prints nothing for this long, the chain pauses and notifies you. `0` disables it. |
 | **For "new session" steps** | `/clear` | Either send `/clear` (fast) or restart claude. |
+| **Wait for me when claude ends a turn with a question** | on | See [Step options](#step-options). |
+| **Retries after an API error / wait before a retry** | 2 / 30 s | Automatic retries on `StopFailure`. |
+| **Timeout for condition / verify commands** | 15 min | A command still running after this is killed and counts as failed. |
+| **Checkpoint before each step** | on | Git snapshots for roll back and diff stats. See [Git checkpoints](#git-checkpoints). |
+| **When the chain completes** | do nothing | Or commit / commit on a new branch / commit on a new branch and push. |
+| **New branch prefix** | `chain-prompt/` | For the two "new branch" options. |
 | **Desktop notifications** | on | Native OS notifications. |
 | **ntfy notifications** | off | Push notifications via an ntfy server and topic. |
-| **ntfy server / topic** | `https://ntfy.sh` / – | Use a topic name that is hard to guess, or your own server. |
+| **ntfy server / topic** | `https://ntfy.sh` / – | **Random** fills in a hard-to-guess topic. |
+| **ntfy access token** | – | Sent as `Authorization: Bearer …`, for protected topics on your own server or ntfy.sh. |
+| **Slack / Discord webhook URL** | – | An incoming-webhook URL; every notification is posted there. |
+| **Telegram bot token / chat id** | – | Messages via your bot (create one with @BotFather). |
 | **claude command** | `claude` | Path or name of the CLI. |
 | **Extra arguments** | – | Appended to every launch, e.g. `--model opus`. |
 | **Hook transport** | command + curl | Or native HTTP hooks. See [below](#hook-transport). |
+
+**Save & send a test notification** in the dialog sends one message to every configured channel and shows
+which ones failed.
 
 > [!WARNING]
 > **`bypassPermissions` is risky when running unattended.** Claude will run every command without asking.
@@ -339,25 +555,28 @@ Open with the ⚙ button in the top-right corner. Changes apply the next time cl
 
 **You are notified when**
 
+Every event goes to the desktop and to each configured remote channel (ntfy, Slack, Discord, Telegram).
+
 | Event | Desktop | ntfy priority |
 |---|---|---|
-| Chain completed | ✅ | default |
-| claude needs a permission or input | ✅ | high |
+| Chain completed (with the git finish result, if enabled) | ✅ | default |
+| claude needs a permission or input, or asked a question | ✅ | high |
 | A step failed (API error, claude exited, prompt not accepted) | ✅ | high |
 | A step seems stuck (stall warning) | ✅ | high |
 | claude is waiting for a folder-trust or login confirmation at start-up | ✅ | high |
+| A scheduled run was missed (app closed / machine asleep) | ✅ | high |
 
-**Sleep prevention:** while a chain is running, waiting, or paused, Electron's
-`powerSaveBlocker('prevent-app-suspension')` keeps the machine awake. It is released when the chain completes
-or is stopped.
+**Sleep prevention:** while a chain in any tab is running, waiting, or paused, or a schedule is set, Electron's
+`powerSaveBlocker('prevent-app-suspension')` keeps the machine awake. It is released when that is no longer the
+case.
 
 **Run logs:** every chain run writes two files to `<folder>/.chain-prompt/logs/`. A `.gitignore` is created
 there so logs never end up in your repository. The **Logs** button opens the folder.
 
 | File | Content |
 |---|---|
-| `YYYY-MM-DD_HH-MM-SS.log` | Human-readable event log: each prompt, acceptance, completion with duration, claude's last message, notifications, errors. |
-| `YYYY-MM-DD_HH-MM-SS.json` | Machine-readable summary: per-step status, `startedAt`, `endedAt`, `durationMs`, note. |
+| `YYYY-MM-DD_HH-MM-SS.log` | Human-readable event log: each prompt (with variables filled in), acceptance, conditions, verify output, fix attempts, retries, checkpoints, `diff --stat`, completion with duration and cost, claude's last message, notifications, errors. |
+| `YYYY-MM-DD_HH-MM-SS.json` | Machine-readable summary: chain name, per-step status, `startedAt`, `endedAt`, `durationMs`, note, output, loops, attempts, token usage and cost, diff stat. The run history reads these. |
 
 <details>
 <summary>Sample <code>.log</code> (real output from <code>npm run test:chain</code>)</summary>
@@ -427,8 +646,8 @@ sequenceDiagram
 |---|---|
 | `SessionStart` | claude is ready for input (`source: startup`, or `clear` after `/clear`). The first prompt is only sent after this. |
 | `UserPromptSubmit` | Confirms the prompt was accepted. If it does not arrive within 8 s, Enter is sent once more. If it still does not arrive, the step fails with a clear message. |
-| **`Stop`** | **The step is done.** After a short delay, the next prompt is typed. |
-| `StopFailure` | The turn ended on an API error (rate limit, auth, billing, …). The step fails and the chain pauses. |
+| **`Stop`** | **The turn is done.** Its `last_assistant_message` is checked for a question, its `transcript_path` is read for token usage, then the verify command runs (if any) and the next prompt is typed. |
+| `StopFailure` | The turn ended on an API error (rate limit, auth, billing, …). The step is retried, or fails per its *On error* option. |
 | `Notification` | `permission_prompt`, `idle_prompt`, `elicitation_dialog`, `agent_needs_input` switch the chain to *Needs you* and notify you. |
 | `PostToolUse` | claude is working again after you answered a permission prompt. |
 | `SessionEnd` | claude exited. If a step was in flight, it fails and the chain pauses. |
@@ -509,7 +728,7 @@ flowchart LR
         HS["HookServer<br/>127.0.0.1 + token"]
         PTY["ClaudeSession<br/>node-pty"]
         ST["Store<br/>state.json"]
-        NT["Notifier<br/>desktop + ntfy"]
+        NT["Notifier<br/>desktop · ntfy · Slack<br/>Discord · Telegram"]
         RL["RunLog<br/>.chain-prompt/logs"]
     end
     CL(["claude CLI"])
@@ -526,21 +745,29 @@ flowchart LR
 
 ```
 src/
-├─ shared/             types, IPC channel names, preload API contract
+├─ shared/             types, IPC channel names, preload API contract, variables, templates
 ├─ main/
-│  ├─ index.ts         window, IPC handlers, persistence, powerSaveBlocker
-│  ├─ store.ts         <userData>/state.json (debounced, atomic writes)
-│  ├─ notifier.ts      desktop + ntfy notifications
+│  ├─ index.ts         window, IPC handlers, tabs, scheduler, powerSaveBlocker, `run` mode
+│  ├─ workspace.ts     one tab: folder + SessionManager + ChainRunner + variables + schedule
+│  ├─ store.ts         <userData>/state.json (debounced, atomic writes, migrates the old format)
+│  ├─ headless.ts      the headless runner behind `run` (no Electron imports)
+│  ├─ notifier.ts      ntfy, Slack, Discord, Telegram (no Electron imports)
+│  ├─ desktopNotifier.ts  desktop notification + the remote channels
 │  └─ core/            Electron-free core, testable with plain Node
-│     ├─ hookServer.ts       token-protected loopback HTTP server
+│     ├─ hookServer.ts       token-protected loopback HTTP server (shared by all tabs)
 │     ├─ claudeSettings.ts   temporary --settings file with the hooks
 │     ├─ ptySession.ts       node-pty, per-OS shell, claude arguments
 │     ├─ sessionManager.ts   launches claude, readiness, launchId filtering
 │     ├─ chainRunner.ts      the chain state machine
-│     └─ runLog.ts           .chain-prompt/logs writer
+│     ├─ shell.ts            `when` / `verify` commands
+│     ├─ questions.ts        "did claude end with a question?" heuristic
+│     ├─ usage.ts            token usage + cost from the transcript
+│     ├─ git.ts              checkpoints, diff stat, roll back, finish actions
+│     └─ runLog.ts           .chain-prompt/logs writer and reader (history)
+├─ cli/index.ts        `npm run cli` entry
 ├─ preload/index.ts    contextBridge API
 └─ renderer/           UI (vanilla TypeScript) + xterm.js
-scripts/               unit, real-claude and e2e tests, icon renderer
+scripts/               unit, integration and e2e tests, fake claude, icon renderer
 examples/              ready-to-load chain templates
 docs/                  logo and screenshots used in this README
 ```
@@ -552,8 +779,12 @@ stateDiagram-v2
     [*] --> Ready
     Ready --> Starting: Start
     Starting --> Running: SessionStart + prompt accepted
-    Running --> NeedsYou: Notification (permission / input)
-    NeedsYou --> Running: PostToolUse
+    Running --> NeedsYou: Notification (permission / input) or a question
+    NeedsYou --> Running: PostToolUse / your reply / Resume
+    Running --> Verifying: Stop + verify command
+    Verifying --> Running: failed → fix prompt
+    Verifying --> Running: passed → next step
+    Running --> Running: StopFailure → retry
     Running --> Running: Stop → next step
     Running --> Pausing: Pause
     Pausing --> Paused: Stop (step done)
@@ -582,14 +813,20 @@ When claude exits, the terminal drops into the shell, so the terminal stays usab
 ## Testing
 
 ```bash
-npm test                                   # typecheck + state-machine unit tests (no claude needed)
+npm test                                   # typecheck + unit tests (no claude needed)
+npm run test:headless                      # whole engine via the CLI, with a fake claude (macOS / Linux)
+npm run test:e2e:ui                        # the built app's UI features, no claude needed
+npm run test:e2e:parallel                  # two tabs running at once with a fake claude, roll back, history
 npm run test:chain                         # real claude, 3-step chain, no Electron
-npm run test:e2e -- <trusted-folder>       # drives the real Electron app with Playwright
+npm run test:e2e -- <trusted-folder>       # drives the real Electron app with Playwright and real claude
 ```
 
 | Suite | Needs claude | What it proves |
 |---|---|---|
-| `test:unit` | no | 30 checks: chaining on `Stop`, ignoring stale `Stop`, permission → *Needs you* → back to running, pause/resume, stop (Esc), skip, `StopFailure`, `SessionEnd`, stall auto-pause, restore as *Interrupted*, reorder and duplicate. |
+| `test:unit` | no | 78 checks: chaining on `Stop`, ignoring stale `Stop`, permission → *Needs you* → back to running, pause/resume, stop (Esc), skip, `StopFailure` retries, *On error* skip, question detection, variables and `{{prev.output}}`, `when`, verify + fix loops, per-step model restarts, bulk actions, transcript usage and cost, git checkpoint / diff / roll back on a real repo, CLI arguments, old state migration. |
+| `test:headless` | no (fake) | The whole stack — real pty, hook server, curl hooks, git — through the headless CLI, with [`scripts/fake-claude.cjs`](scripts/fake-claude.cjs) speaking the hook protocol: verify + fix, model restart, conditions, `/clear`, checkpoints, usage, retries, exit codes, git finish on a new branch. |
+| `test:e2e:ui` | no | Old-state migration, variables, step options and tags, reply / cost / diff display, filter, bulk skip, templates, schedule, tabs, settings, shortcuts, persistence after a restart. On Linux CI run it under `xvfb-run -a`. |
+| `test:e2e:parallel` | no (fake) | Two tabs run their chains at the same time in different repos; the terminal follows the active tab; roll back restores the files; history detail and comparison. |
 | `test:chain` | yes | Every `Stop` hook triggers the next prompt, a multi-line prompt arrives intact, steps run strictly in order, logs are written, and `/clear` really resets the context (step 3 answers `UNKNOWN`). |
 | `test:e2e` | yes | Adds 3 prompts through the UI, runs them, checks all cards are *Done* and the terminal shows the reply, captures the README screenshots, then quits mid-step, relaunches, and checks the step is *Interrupted*. |
 
@@ -615,10 +852,14 @@ npm run test:e2e -- <trusted-folder>       # drives the real Electron app with P
 
 ## Known limitations
 
-- If claude asks *you* a question and ends its turn, that is a `Stop` too, so the next prompt is sent. For
-  unattended chains, tell claude in the prompt not to ask questions and to make reasonable assumptions.
-- Only one claude session (one folder) is driven at a time.
-- ntfy topics on the public server are readable by anyone who knows the name.
+- Question detection is a heuristic on claude's last paragraph. It can miss a question or, rarely, stop on a
+  rhetorical one (press **Resume**). For unattended chains, still tell claude not to ask questions.
+- The cost is an estimate from API list prices and leaves out subagent transcripts.
+- A per-step model or permission mode restarts claude with `--continue`; the conversation is kept, but anything
+  only held by the running process (e.g. a background shell) is not.
+- Scheduled runs need the app to be running, and keep the machine awake while a schedule is set.
+- Roll back restores the folder to the checkpoint, including changes you made by hand in the meantime.
+- ntfy topics on the public server are readable by anyone who knows the name; use **Random** or a token.
 
 ## Scripts reference
 
@@ -635,7 +876,11 @@ npm run test:e2e -- <trusted-folder>       # drives the real Electron app with P
 | `npm test` | Typecheck + unit tests. |
 | `npm run test:unit` | State-machine tests with a fake claude session. |
 | `npm run test:chain` | Real-claude 3-step chain test (Electron-free). |
+| `npm run test:headless` | Engine integration test through the CLI with a fake claude. |
+| `npm run test:e2e:ui` | UI feature test of the built app (no claude). |
+| `npm run test:e2e:parallel` | Two tabs in parallel with a fake claude; roll back; history. |
 | `npm run test:e2e -- <folder>` | Playwright end-to-end test of the built app; regenerates `docs/*.png`. |
+| `npm run cli -- run <chain.json> …` | Run a chain headless with plain Node. See [Headless CLI](#headless-cli). |
 | `npm run icon` | Render `docs/logo.svg` to `build/icon.png` (the app icon). |
 
 ## Publishing a release
